@@ -1,6 +1,6 @@
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.server.Directives.{complete, get, path, _}
+import akka.http.scaladsl.server.Directives.{complete, get, _}
 import akka.http.scaladsl.server.Route
 import domain.Counter
 
@@ -9,21 +9,37 @@ class RestApi(system: ActorSystem) extends Routes {
 }
 
 trait Routes extends CounterApi {
-  def routes: Route = route
+  def routes: Route = countUpRoute ~ countDownRoute
 
-  val route =
-    path("hello") {
-      get {
-        countUp
-        complete(HttpEntity("<h1>Say hello to akka-http</h1>"))
+  val countUpRoute: Route =
+    pathPrefix("countup") {
+      pathEndOrSingleSlash {
+        get {
+          countUp
+          complete(HttpEntity("<h1>Say hello to akka-http</h1>"))
+        }
+      }
+    }
+  val countDownRoute: Route =
+    pathPrefix("countdown") {
+      pathEndOrSingleSlash {
+        get {
+          countDown
+          complete(HttpEntity("<h1>Say hello to akka-http</h1>"))
+        }
       }
     }
 }
 
 trait CounterApi {
+
+  import Counter._
+
   def actor(): ActorRef
 
   lazy val counter = actor()
 
-  def countUp = counter ! "test"
+  def countUp = counter ! CountUp
+
+  def countDown = counter ! CountDown
 }
