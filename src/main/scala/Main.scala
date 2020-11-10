@@ -14,7 +14,7 @@ object Main extends App {
   val port = config.getInt("http.port")
   // Httpはakka-http
   // 起動時に"ch.qos.logback" % "logback-classic" % "1.2.3"を入れておかないとエラー出るので入れておく
-  val api = new RestApi().routes
+  val api = new RestApi(system).routes
   val bindingFuture = Http().newServerAt(host, port).bind(api)
   sys.addShutdownHook {
     bindingFuture
