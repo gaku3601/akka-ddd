@@ -1,16 +1,20 @@
+import java.util.UUID.randomUUID
+
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.server.Directives.{complete, get, _}
 import akka.http.scaladsl.server.Route
-import domain.Counter
+import domain.{Account, Counter}
 
-class RestApi(system: ActorSystem) extends Routes {
-  val actor = system.actorOf(Props[Counter], Counter.ACTOR_NAME)
+class RestApi(sys: ActorSystem) extends CounterRoutes with AccountRoutes {
+  val system = sys
+
+  def routes: Route = countUpRoute ~ countDownRoute ~ accountRoute
 }
 
-trait Routes extends CounterApi {
-  def routes: Route = countUpRoute ~ countDownRoute
-
+trait CounterRoutes extends CounterApi {
+  val system: ActorSystem
+  lazy val counterActor = system.actorOf(Props[Counter], Counter.ACTOR_NAME)
   val countUpRoute: Route =
     pathPrefix("countup") {
       pathEndOrSingleSlash {
@@ -31,15 +35,41 @@ trait Routes extends CounterApi {
     }
 }
 
+trait AccountRoutes extends AccountApi {
+  val system: ActorSystem
+  lazy val accountActor = system.actorOf(Props[Account], randomUUID().toString)
+
+  val accountRoute: Route =
+    pathPrefix("account") {
+      pathEndOrSingleSlash {
+        get {
+          createAccount("testname", 20)
+          complete(HttpEntity("<h1>Say hello to akka-http</h1>"))
+        }
+      }
+    }
+}
+
 trait CounterApi {
 
   import Counter._
 
-  def actor(): ActorRef
+  def counterActor(): ActorRef
 
-  lazy val counter = actor()
+  lazy val counter = counterActor()
 
   def countUp = counter ! CountUp
 
   def countDown = counter ! CountDown
+}
+
+trait AccountApi {
+
+  import domain.Account._
+
+  def accountActor(): ActorRef
+
+  lazy val account = accountActor()
+
+  def createAccount(name: String, age: Int) = account ! CreateAccount(name, age)
 }
