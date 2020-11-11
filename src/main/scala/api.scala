@@ -1,20 +1,20 @@
-import java.util.UUID.randomUUID
+import java.util.UUID._
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.server.Directives.{complete, get, _}
 import akka.http.scaladsl.server.Route
 import domain.{Account, Counter}
 
-class RestApi(sys: ActorSystem) extends CounterRoutes with AccountRoutes {
-  val system = sys
+class RestApi(rootSystem: ActorSystem) extends CounterRoutes with AccountRoutes {
 
   def routes: Route = countUpRoute ~ countDownRoute ~ accountRoute
+
+  override val system: ActorSystem = rootSystem
 }
 
+// コントローラー
 trait CounterRoutes extends CounterApi {
-  val system: ActorSystem
-  lazy val counterActor = system.actorOf(Props[Counter], Counter.ACTOR_NAME)
   val countUpRoute: Route =
     pathPrefix("countup") {
       pathEndOrSingleSlash {
@@ -36,9 +36,6 @@ trait CounterRoutes extends CounterApi {
 }
 
 trait AccountRoutes extends AccountApi {
-  val system: ActorSystem
-  lazy val accountActor = system.actorOf(Props[Account], randomUUID().toString)
-
   val accountRoute: Route =
     pathPrefix("account") {
       pathEndOrSingleSlash {
@@ -50,26 +47,32 @@ trait AccountRoutes extends AccountApi {
     }
 }
 
+// service
 trait CounterApi {
 
   import Counter._
 
-  def counterActor(): ActorRef
+  val system: ActorSystem
 
-  lazy val counter = counterActor()
+  def countUp = {
+    val counter = system.actorOf(Props[Counter], Counter.ACTOR_NAME) // 複数回叩くとactor name重複エラー(cluster shardingを使えば解決できるかも？)
+    counter ! CountUp
+  }
 
-  def countUp = counter ! CountUp
-
-  def countDown = counter ! CountDown
+  def countDown = {
+    val counter = system.actorOf(Props[Counter], Counter.ACTOR_NAME)
+    counter ! CountDown
+  }
 }
 
 trait AccountApi {
 
   import domain.Account._
 
-  def accountActor(): ActorRef
+  val system: ActorSystem
 
-  lazy val account = accountActor()
-
-  def createAccount(name: String, age: Int) = account ! CreateAccount(name, age)
+  def createAccount(name: String, age: Int) = {
+    val account = system.actorOf(Props[Account], randomUUID().toString)
+    account ! CreateAccount(name, age)
+  }
 }
